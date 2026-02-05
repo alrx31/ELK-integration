@@ -1,12 +1,12 @@
 # ELK Integration
 
-Универсальный шаблон для подключения ELK стека (Elasticsearch, Logstash, Kibana) с поддержкой HTTPS и примерами интеграции для Java и .NET.
+Универсальный шаблон для подключения ELK стека (Elasticsearch, Logstash, Kibana) с поддержкой HTTPS и примером интеграции для .NET.
 
 ## Особенности
 
 - ✅ Полная настройка ELK стека через Docker Compose
 - ✅ HTTPS/SSL поддержка для всех компонентов
-- ✅ Примеры интеграции для Java и .NET
+- ✅ Пример интеграции для .NET
 - ✅ Автоматическая генерация SSL сертификатов
 - ✅ Готовые конфигурации для production
 
@@ -22,7 +22,7 @@ cd src
 ### 2. Запуск ELK стека
 
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
 
 ### 3. Доступ к сервисам
@@ -43,46 +43,42 @@ docker-compose up -d
 
 ```bash
 # Проверка Elasticsearch
-curl -k -u elastic:changeme https://localhost:9200/_cluster/health
+curl -k -u elastic:test_password_123 https://localhost:9200/_cluster/health
 
 # Просмотр логов контейнеров
-docker logs logstash
+docker compose logs logstash
 ```
 
 ## Интеграция с приложением
 
-### Java
-
-См. подробное руководство: [src/examples/java/README.md](src/examples/java/README.md)
-
-```java
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.slf4j.MDC;
-
-Logger logger = LoggerFactory.getLogger(MyClass.class);
-MDC.put("userId", "123");
-logger.info("Сообщение");
-```
-
 ### .NET
 
-См. подробное руководство: [src/examples/dotnet/README.md](src/examples/dotnet/README.md)
+См. пример: [src/examples/dotnet/](src/examples/dotnet/)  
+Библиотека логирования: [src/examples/dotnetIntegration/Logs](src/examples/dotnetIntegration/Logs)
 
 ```csharp
-using Serilog;
+using Logs.Domain;
+using Logs.Infrastructure;
 
-Log.Logger = new LoggerConfiguration()
-    .WriteTo.Tcp("localhost", 5000)
-    .CreateLogger();
+using var logger = new Logger(new LogstashOptions
+{
+    Host = "localhost",
+    Port = 5000,
+    UseSsl = true,
+    CaCertificatePath = "certs/ca/ca.crt"
+});
 
-Log.Information("Сообщение");
+logger.Write(new LogEntry(
+    Timestamp: DateTimeOffset.UtcNow,
+    Level: LogLevel.Info,
+    Message: "Сообщение",
+    Application: "my-app",
+    Environment: "development"));
 ```
 
 ## Документация
 
 - [Полное руководство по интеграции](src/INTEGRATION_GUIDE.md)
-- [Примеры для Java](src/examples/java/)
 - [Примеры для .NET](src/examples/dotnet/)
 
 ## Структура проекта
@@ -96,8 +92,8 @@ Log.Information("Сообщение");
 │   ├── certs/                      # SSL сертификаты (генерируются)
 │   ├── logstash/                   # Конфигурации Logstash
 │   └── examples/                   # Примеры интеграции
-│       ├── java/                   # Java примеры
-│       └── dotnet/                 # .NET примеры
+│       ├── dotnet/                 # .NET пример (использует Logs)
+│       └── dotnetIntegration/      # .NET библиотека логирования
 └── README.md                       # Этот файл
 ```
 
@@ -138,18 +134,18 @@ Log.Information("Сообщение");
 
 1. Убедитесь, что сертификаты сгенерированы: `ls -la src/certs/`
 2. Проверьте права доступа: `chmod 600 src/certs/**/*.key`
-3. Перезапустите контейнеры: `docker-compose restart`
+3. Перезапустите контейнеры: `docker compose restart`
 
 ### Просмотр логов
 
 ```bash
 # Все сервисы
-docker-compose logs -f
+docker compose logs -f
 
 # Конкретный сервис
-docker logs logstash
-docker logs elasticsearch
-docker logs kibana
+docker compose logs logstash
+docker compose logs elasticsearch
+docker compose logs kibana
 ```
 
 ## Лицензия
