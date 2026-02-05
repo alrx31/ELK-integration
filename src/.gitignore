@@ -1,0 +1,23 @@
+# SSL сертификаты (не коммитить!)
+certs/
+*.key
+*.crt
+*.csr
+*.pem
+*.jks
+*.p12
+
+# Переменные окружения с паролями (не коммитить!)
+.env
+.env.local
+.env.*.local
+
+# Данные Elasticsearch
+elasticsearch_data/
+
+# Данные Logstash
+logstash_data/
+
+# Временные файлы
+*.tmp
+*.log

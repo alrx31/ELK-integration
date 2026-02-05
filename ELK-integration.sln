@@ -1,0 +1,35 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.2.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{827E0CD3-B72D-47B6-A68D-7590B98EB39B}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "examples", "examples", "{5F800AEC-81E7-8274-1389-B9340FE786D1}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "dotnet", "dotnet", "{6C1625C7-9495-53CD-CC93-54A64EE9FEBB}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ElkIntegration", "src\examples\dotnet\ElkIntegration.csproj", "{8BCFC947-1E28-2E28-B65D-DBC3807A90CE}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{8BCFC947-1E28-2E28-B65D-DBC3807A90CE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8BCFC947-1E28-2E28-B65D-DBC3807A90CE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8BCFC947-1E28-2E28-B65D-DBC3807A90CE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8BCFC947-1E28-2E28-B65D-DBC3807A90CE}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{5F800AEC-81E7-8274-1389-B9340FE786D1} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
+		{6C1625C7-9495-53CD-CC93-54A64EE9FEBB} = {5F800AEC-81E7-8274-1389-B9340FE786D1}
+		{8BCFC947-1E28-2E28-B65D-DBC3807A90CE} = {6C1625C7-9495-53CD-CC93-54A64EE9FEBB}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {9BB826FB-77F6-4AE4-9CC7-1C1CCA15BB68}
+	EndGlobalSection
+EndGlobal

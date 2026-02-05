@@ -1,0 +1,19 @@
+# Override файл с тестовыми паролями
+# Этот файл автоматически подхватывается docker-compose
+# Для production создайте свой override файл или используйте .env
+
+services:
+  elasticsearch:
+    environment:
+      - ELASTIC_PASSWORD=test_password_123
+      - ELASTICSEARCH_USER=elastic
+
+  logstash:
+    environment:
+      - ELASTICSEARCH_USER=elastic
+      - ELASTICSEARCH_PASSWORD=${ELASTIC_PASSWORD:-test_password_123}
+
+  kibana:
+    environment:
+      - ELASTICSEARCH_USERNAME=kibana_system
+      - ELASTICSEARCH_PASSWORD=${KIBANA_SYSTEM_PASSWORD:-test_password_123}
