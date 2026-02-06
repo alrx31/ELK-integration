@@ -76,7 +76,7 @@ class Program
         IReadOnlyDictionary<string, object?>? properties = null,
         Exception? exception = null)
     {
-        logger.Write(new LogEntry(
+        logger.Log(new LogEntry(
             Timestamp: DateTimeOffset.UtcNow,
             Level: level,
             Message: message,

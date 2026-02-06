@@ -4,5 +4,7 @@ namespace Logs.Application;
 
 public interface ILogWriter
 {
-    void Write(LogEntry entry);
+    void Log(LogEntry entry);
+    void Log(string message);
+    void Log(string message, LogLevel logLevel);
 }
