@@ -25,7 +25,20 @@ cd src
 docker compose up -d
 ```
 
-### 3. Доступ к сервисам
+### 3. Генерация пароля для Kibana (kibana_system)
+
+После первого запуска Elasticsearch задайте пароль для служебного пользователя Kibana:
+
+```bash
+docker exec -it elasticsearch bin/elasticsearch-reset-password \
+  -u kibana_system \
+  --url https://elasticsearch:9200 \
+  --force
+```
+
+Сохраните пароль и укажите его в `.env` как `KIBANA_SYSTEM_PASSWORD`, затем перезапустите Kibana.
+
+### 4. Доступ к сервисам
 
 - **Elasticsearch**: https://localhost:9200
   - Пользователь: `elastic`
@@ -39,7 +52,7 @@ docker compose up -d
 
 **Настройка паролей:** См. [src/PASSWORDS.md](src/PASSWORDS.md) для подробной информации о настройке паролей.
 
-### 4. Проверка работы
+### 5. Проверка работы
 
 ```bash
 # Проверка Elasticsearch
@@ -146,6 +159,27 @@ docker compose logs -f
 docker compose logs logstash
 docker compose logs elasticsearch
 docker compose logs kibana
+```
+
+### Kibana предупреждения о ключах шифрования
+
+Если в логах Kibana есть предупреждения про `Saved objects encryption key` или `reporting.encryptionKey`,
+убедитесь, что в `.env` заданы:
+
+- `XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY`
+- `XPACK_REPORTING_ENCRYPTIONKEY`
+- `XPACK_SECURITY_ENCRYPTIONKEY`
+
+### Ошибка аутентификации kibana_system
+
+Если в логах Kibana есть `unable to authenticate user [kibana_system]`, сбросьте пароль и
+обновите `KIBANA_SYSTEM_PASSWORD` в `.env`:
+
+```bash
+docker exec -it elasticsearch bin/elasticsearch-reset-password \
+  -u kibana_system \
+  --url https://elasticsearch:9200 \
+  --force
 ```
 
 ## Лицензия

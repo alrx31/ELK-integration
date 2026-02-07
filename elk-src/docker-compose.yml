@@ -1,8 +1,9 @@
 services:
   elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.19.11
     container_name: elasticsearch
     environment:
+      - node.name=elasticsearch
       - discovery.type=single-node
       - xpack.security.enabled=true
       - xpack.security.http.ssl.enabled=true
@@ -14,7 +15,7 @@ services:
       - xpack.security.transport.ssl.certificate=certs/elasticsearch/elasticsearch.crt
       - xpack.security.transport.ssl.certificate_authorities=certs/ca/ca.crt
       - xpack.security.transport.ssl.verification_mode=certificate
-      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD:-changeme}
+      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD:-test_password_123}
       - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
       - bootstrap.memory_lock=true
     ulimits:
@@ -22,25 +23,24 @@ services:
         soft: -1
         hard: -1
     volumes:
-      - elasticsearch_data:/usr/share/elasticsearch/data
       - ./certs:/usr/share/elasticsearch/config/certs:ro
+      - elasticsearch_data:/usr/share/elasticsearch/data
     ports:
       - "9200:9200"
       - "9300:9300"
     networks:
       - elk
     healthcheck:
-      test: ["CMD-SHELL", "curl -k -u elastic:${ELASTIC_PASSWORD:-changeme} https://localhost:9200/_cluster/health || exit 1"]
-      interval: 30s
+      test: ["CMD-SHELL", "curl -k -u elastic:${ELASTIC_PASSWORD:-test_password_123} https://localhost:9200/_cluster/health || exit 1"]
+      interval: 15s
       timeout: 10s
       retries: 5
 
   logstash:
-    image: docker.elastic.co/logstash/logstash:8.11.0
+    image: docker.elastic.co/logstash/logstash:8.19.11
     container_name: logstash
-    user: "0:0"
     volumes:
-      - ./logstash/pipeline:/usr/share/logstash/pipeline:ro
+      - ./logstash/pipeline/logstash.conf:/usr/share/logstash/pipeline/logstash.conf:ro,Z
       - ./certs:/usr/share/logstash/config/certs:ro
       - logstash_data:/usr/share/logstash/data
     ports:
@@ -52,14 +52,13 @@ services:
       - "LS_JAVA_OPTS=-Xmx256m -Xms256m"
       - ELASTICSEARCH_HOSTS=https://elasticsearch:9200
       - ELASTICSEARCH_USER=${ELASTICSEARCH_USER:-elastic}
-      - ELASTICSEARCH_PASSWORD=${ELASTIC_PASSWORD:-changeme}
+      - ELASTICSEARCH_PASSWORD=${ELASTIC_PASSWORD:-test_password_123}
       - ELASTICSEARCH_SSL_CERTIFICATE_AUTHORITY=/usr/share/logstash/config/certs/ca/ca.crt
       - XPACK_MONITORING_ENABLED=false
       - XPACK_MONITORING_ELASTICSEARCH_HOSTS=https://elasticsearch:9200
       - XPACK_MONITORING_ELASTICSEARCH_USERNAME=${ELASTICSEARCH_USER:-elastic}
-      - XPACK_MONITORING_ELASTICSEARCH_PASSWORD=${ELASTIC_PASSWORD:-changeme}
+      - XPACK_MONITORING_ELASTICSEARCH_PASSWORD=${ELASTIC_PASSWORD:-test_password_123}
       - XPACK_MONITORING_ELASTICSEARCH_SSL_CERTIFICATE_AUTHORITY=/usr/share/logstash/config/certs/ca/ca.crt
-    command: logstash -f /usr/share/logstash/pipeline/logstash.conf
     networks:
       - elk
     depends_on:
@@ -67,11 +66,11 @@ services:
         condition: service_healthy
 
   kibana:
-    image: docker.elastic.co/kibana/kibana:8.11.0
+    image: docker.elastic.co/kibana/kibana:8.19.11
     container_name: kibana
     environment:
       - ELASTICSEARCH_HOSTS=https://elasticsearch:9200
-      - ELASTICSEARCH_USERNAME=kibana_system
+      - ELASTICSEARCH_USERNAME=${KIBANA_SYSTEM_USER:-kibana_system}
       - ELASTICSEARCH_PASSWORD=${KIBANA_SYSTEM_PASSWORD:-test_password_123}
       - ELASTICSEARCH_SSL_CERTIFICATEAUTHORITIES=/usr/share/kibana/config/certs/ca/ca.crt
       - SERVERNAME=kibana
@@ -79,6 +78,10 @@ services:
       - SERVER_SSL_ENABLED=true
       - SERVER_SSL_KEY=/usr/share/kibana/config/certs/kibana/kibana.key
       - SERVER_SSL_CERTIFICATE=/usr/share/kibana/config/certs/kibana/kibana.crt
+      - XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY=${XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY:-change_me_32_characters_long_key}
+      - XPACK_REPORTING_ENCRYPTIONKEY=${XPACK_REPORTING_ENCRYPTIONKEY:-change_me_32_characters_long_key}
+      - XPACK_SECURITY_ENCRYPTIONKEY=${XPACK_SECURITY_ENCRYPTIONKEY:-change_me_32_characters_long_key}
+      - XPACK_REPORTING_KIBANASERVER_HOSTNAME=localhost
     volumes:
       - ./certs:/usr/share/kibana/config/certs:ro
     ports:
@@ -90,7 +93,7 @@ services:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "curl -k -f https://localhost:5601/api/status || exit 1"]
-      interval: 30s
+      interval: 15s
       timeout: 10s
       retries: 5
 

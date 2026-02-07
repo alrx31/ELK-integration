@@ -151,7 +151,3 @@ rm -f ${CA_DIR}/*.srl
 echo "Сертификаты успешно сгенерированы!"
 echo ""
 echo ""
-echo "Важно:"
-echo "1. По умолчанию пароль для пользователя 'elastic': test_password_123 (из docker-compose.override.yml)"
-echo "2. Для production измените пароль через .env файл или свой override файл"
-echo "3. См. PASSWORDS.md для подробной информации о настройке паролей"

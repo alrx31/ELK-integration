@@ -21,3 +21,6 @@ logstash_data/
 # Временные файлы
 *.tmp
 *.log
+
+**/.bin/*
+**/.obj/*
