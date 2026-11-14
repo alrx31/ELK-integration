@@ -1,33 +1,81 @@
-# ELK Integration
+# ELK-integration
 
-Универсальный шаблон для подключения ELK стека (Elasticsearch, Logstash, Kibana) с поддержкой HTTPS и примером интеграции для .NET.
+A Docker Compose template for an Elasticsearch, Logstash, and Kibana stack with TLS on the HTTP and Beats endpoints, plus a small .NET 8 client library that ships JSON logs to Logstash over TCP.
 
-## Особенности
+The repository already has a Russian README. That file refers to a `src/` directory and to docs such as `KIBANA_ACCESS.md`, `PASSWORDS.md`, `INTEGRATION_GUIDE.md`, and `docker-compose.override.yml`, which are not in the tree. The stack actually lives under **`elk-src/`**. This draft follows the files that are in the repo.
 
-- ✅ Полная настройка ELK стека через Docker Compose
-- ✅ HTTPS/SSL поддержка для всех компонентов
-- ✅ Пример интеграции для .NET
-- ✅ Автоматическая генерация SSL сертификатов
-- ✅ Готовые конфигурации для production
+<!-- Screenshot: add a Kibana Discover screenshot here, e.g. ![Kibana logs](docs/screenshot.png) -->
 
-## Быстрый старт
+## Features
 
-### 1. Генерация SSL сертификатов
+- **ELK 8.19.11** — Elasticsearch (single node), Logstash, and Kibana, all started from `elk-src/docker-compose.yml`.
+- **TLS** — HTTP and transport TLS for Elasticsearch, HTTPS for Kibana, TLS for Logstash TCP (`5000`) and Beats (`5044`). A `generate-certs.sh` script builds a local CA and per-service certificates (SAN includes `localhost` and `127.0.0.1` where relevant).
+- **Logstash inputs** — TCP 5000 (JSON lines, TLS), UDP 5000 (JSON lines, no TLS), and Beats 5044 (TLS). Output index pattern is `logs-YYYY.MM.dd`.
+- **.NET 8 logging library** (`elk-src/examples/dotnetIntegration/Logs`, package id `ELKIntegration.Logs`) — a `Logger` that formats a `LogEntry` as camelCase JSON (`@timestamp`, `level`, `message`, `application`, `environment`, optional `correlationId`, `userId`, exception, and custom properties) and writes it to Logstash over TCP, with optional SSL and CA validation.
+- **Runnable example** — `elk-src/examples/dotnet/Program.cs` sends a few sample log lines to `localhost:5000` with TLS. `ProgramWithSSL.cs` is a Serilog-based sketch and is **excluded** from compilation (`Compile Remove` in the example `.csproj`).
+
+## Tech stack
+
+- Elasticsearch, Logstash, Kibana **8.19.11** (official Elastic images)
+- Docker Compose, OpenSSL (certificate script)
+- .NET 8 class library and console example (no extra NuGet logging packages in the library; it uses `TcpClient` / `SslStream`)
+- MIT license
+
+## Architecture
+
+```mermaid
+flowchart LR
+  App[".NET app<br/>Logs.Logger"] -->|TCP 5000 TLS<br/>JSON lines| LS[Logstash]
+  Beats[Filebeat / other Beats] -->|5044 TLS| LS
+  UDP["UDP 5000<br/>JSON lines"] --> LS
+  LS -->|HTTPS :9200| ES[(Elasticsearch)]
+  Kibana["Kibana HTTPS :5601"] --> ES
+```
+
+## How to run
+
+Prerequisites: **Docker**, **OpenSSL** (for the cert script). The example also needs the **.NET 8 SDK**.
+
+All Compose and cert commands are run from `elk-src/` (the script writes `./certs`, and Compose mounts `./certs` and `./logstash/pipeline/logstash.conf`).
+
+### 1. Environment file
 
 ```bash
-cd src
+cd elk-src
+cp .env.example .env
+```
+
+Compose reads `.env` from this directory. `.env.example` sets `ELASTICSEARCH_USER`, `ELASTIC_PASSWORD` (default `test_password_123`), `KIBANA_SYSTEM_USER`, `KIBANA_SYSTEM_PASSWORD`, and three Kibana `XPACK_*_ENCRYPTIONKEY` values (each must be at least 32 characters). Change these before any non-local use.
+
+### 2. Certificates
+
+```bash
 ./generate-certs.sh
 ```
 
-### 2. Запуск ELK стека
+This creates `elk-src/certs/ca`, `elk-src/certs/elasticsearch`, `elk-src/certs/logstash`, and `elk-src/certs/kibana`. Compose will not start cleanly until those files exist.
+
+### 3. Start the stack
 
 ```bash
 docker compose up -d
 ```
 
-### 3. Генерация пароля для Kibana (kibana_system)
+Endpoints (after a healthy start):
 
-После первого запуска Elasticsearch задайте пароль для служебного пользователя Kibana:
+| Service        | URL / port                         | Notes |
+|----------------|------------------------------------|--------|
+| Elasticsearch  | `https://localhost:9200`           | User `elastic`, password from `ELASTIC_PASSWORD` |
+| Kibana         | `https://localhost:5601`           | Sign in as `elastic`, not `kibana_system` |
+| Logstash TCP   | `localhost:5000` (TLS)             | JSON lines |
+| Logstash UDP   | `localhost:5000`                   | JSON lines, no TLS |
+| Logstash Beats | `localhost:5044` (TLS)             | |
+| Logstash API   | `localhost:9600`                   | |
+| ES transport   | `9300`                             | |
+
+Self-signed certificates will make browsers and `curl` warn; `curl -k` is appropriate only for this local setup.
+
+Kibana talks to Elasticsearch as `kibana_system`. That built-in user does not use `ELASTIC_PASSWORD` by default. After Elasticsearch is up, reset the password and put the result in `.env` as `KIBANA_SYSTEM_PASSWORD`, then restart Kibana:
 
 ```bash
 docker exec -it elasticsearch bin/elasticsearch-reset-password \
@@ -36,38 +84,27 @@ docker exec -it elasticsearch bin/elasticsearch-reset-password \
   --force
 ```
 
-Сохраните пароль и укажите его в `.env` как `KIBANA_SYSTEM_PASSWORD`, затем перезапустите Kibana.
-
-### 4. Доступ к сервисам
-
-- **Elasticsearch**: https://localhost:9200
-  - Пользователь: `elastic`
-  - Пароль: `test_password_123` (тестовый пароль из `docker-compose.override.yml`)
-
-- **Kibana**: https://localhost:5601
-  - Пользователь: `elastic` ⚠️ **Важно: для входа используйте `elastic`, не `kibana_system`!**
-  - Пароль: `test_password_123` (тестовый пароль из `docker-compose.override.yml`)
-
-**Примечание:** `kibana_system` - служебный пользователь только для внутреннего подключения. Для веб-интерфейса используйте `elastic`. См. [src/KIBANA_ACCESS.md](src/KIBANA_ACCESS.md)
-
-**Настройка паролей:** См. [src/PASSWORDS.md](src/PASSWORDS.md) для подробной информации о настройке паролей.
-
-### 5. Проверка работы
+### 4. Smoke-check Elasticsearch
 
 ```bash
-# Проверка Elasticsearch
-curl -k -u elastic:test_password_123 https://localhost:9200/_cluster/health
-
-# Просмотр логов контейнеров
+curl -k -u elastic:"$ELASTIC_PASSWORD" https://localhost:9200/_cluster/health
 docker compose logs logstash
 ```
 
-## Интеграция с приложением
+(Use the same password you set in `.env`. The Compose default fallback is `test_password_123`.)
 
-### .NET
+### 5. Run the .NET example
 
-См. пример: [src/examples/dotnet/](src/examples/dotnet/)  
-Библиотека логирования: [src/examples/dotnetIntegration/Logs](src/examples/dotnetIntegration/Logs)
+The solution file `ELK-integration.sln` still points at `src/examples/...`, which does not exist. Run the project file from `elk-src` (the directory used above), after the stack is up and certs exist (the example csproj copies `elk-src/certs/ca/ca.crt` when that file is present):
+
+```bash
+dotnet restore examples/dotnet/ElkIntegration.csproj
+dotnet run --project examples/dotnet/ElkIntegration.csproj
+```
+
+The example connects to `localhost:5000` with TLS. If a CA file is found at `certs/ca/ca.crt` (output or working directory), it is used; otherwise the client sets `AcceptAnyCertificate`.
+
+Library usage (from the compiled example):
 
 ```csharp
 using Logs.Domain;
@@ -78,110 +115,32 @@ using var logger = new Logger(new LogstashOptions
     Host = "localhost",
     Port = 5000,
     UseSsl = true,
-    CaCertificatePath = "certs/ca/ca.crt"
+    CaCertificatePath = "certs/ca/ca.crt",
+    AcceptAnyCertificate = false
 });
 
-logger.Write(new LogEntry(
+logger.Log(new LogEntry(
     Timestamp: DateTimeOffset.UtcNow,
     Level: LogLevel.Info,
-    Message: "Сообщение",
-    Application: "my-app",
-    Environment: "development"));
+    Message: "Application started",
+    Application: "my-dotnet-app",
+    Environment: "Development"));
 ```
 
-## Документация
-
-- [Полное руководство по интеграции](src/INTEGRATION_GUIDE.md)
-- [Примеры для .NET](src/examples/dotnet/)
-
-## Структура проекта
+## Project structure
 
 ```
-.
-├── src/
-│   ├── docker-compose.yml          # Конфигурация ELK стека
-│   ├── generate-certs.sh           # Скрипт генерации сертификатов
-│   ├── INTEGRATION_GUIDE.md        # Подробное руководство
-│   ├── certs/                      # SSL сертификаты (генерируются)
-│   ├── logstash/                   # Конфигурации Logstash
-│   └── examples/                   # Примеры интеграции
-│       ├── dotnet/                 # .NET пример (использует Logs)
-│       └── dotnetIntegration/      # .NET библиотека логирования
-└── README.md                       # Этот файл
+ELK-integration.sln          # paths inside still say src/ — prefer the csproj paths below
+LICENSE
+elk-src/
+  .env.example
+  docker-compose.yml
+  generate-certs.sh
+  logstash/pipeline/logstash.conf
+  examples/dotnet/           # console example (Program.cs)
+  examples/dotnetIntegration/Logs/  # ELKIntegration.Logs library
 ```
 
-## Порты
+## Security notes
 
-- **5000** - Logstash TCP (SSL)
-- **5044** - Logstash Beats (SSL)
-- **9200** - Elasticsearch HTTPS
-- **5601** - Kibana HTTPS
-
-## Безопасность
-
-⚠️ **Важно для production:**
-
-1. Измените тестовые пароли:
-   ```bash
-   # Создайте .env файл с production паролем
-   cp .env.example .env
-   # Отредактируйте .env и установите безопасный пароль
-   ```
-
-2. Используйте доверенные CA сертификаты вместо самоподписанных
-
-3. Настройте правильную SSL валидацию в клиентских приложениях
-
-4. Ограничьте доступ к файлам с паролями:
-   ```bash
-   chmod 600 .env
-   ```
-
-Подробнее о управлении паролями: [src/PASSWORDS.md](src/PASSWORDS.md)
-
-## Troubleshooting
-
-### Проблемы с SSL
-
-Если возникают проблемы с SSL сертификатами:
-
-1. Убедитесь, что сертификаты сгенерированы: `ls -la src/certs/`
-2. Проверьте права доступа: `chmod 600 src/certs/**/*.key`
-3. Перезапустите контейнеры: `docker compose restart`
-
-### Просмотр логов
-
-```bash
-# Все сервисы
-docker compose logs -f
-
-# Конкретный сервис
-docker compose logs logstash
-docker compose logs elasticsearch
-docker compose logs kibana
-```
-
-### Kibana предупреждения о ключах шифрования
-
-Если в логах Kibana есть предупреждения про `Saved objects encryption key` или `reporting.encryptionKey`,
-убедитесь, что в `.env` заданы:
-
-- `XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY`
-- `XPACK_REPORTING_ENCRYPTIONKEY`
-- `XPACK_SECURITY_ENCRYPTIONKEY`
-
-### Ошибка аутентификации kibana_system
-
-Если в логах Kibana есть `unable to authenticate user [kibana_system]`, сбросьте пароль и
-обновите `KIBANA_SYSTEM_PASSWORD` в `.env`:
-
-```bash
-docker exec -it elasticsearch bin/elasticsearch-reset-password \
-  -u kibana_system \
-  --url https://elasticsearch:9200 \
-  --force
-```
-
-## Лицензия
-
-См. файл [LICENSE](LICENSE)
+The default `ELASTIC_PASSWORD` and encryption keys in `.env.example` are for local experiments only. Use a private `.env`, trusted certificates, and CA-based validation (`AcceptAnyCertificate = false`) if this is ever exposed beyond a developer machine.
